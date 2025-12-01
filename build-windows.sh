@@ -1,6 +1,6 @@
 #!/bin/bash
-# AuroraKVM Windows Build Script
-# This script cross-compiles for Windows using mingw-w64
+# AuroraKVM Cross-Compilation Script (Linux -> Windows)
+# This script cross-compiles for Windows FROM a Linux system using mingw-w64
 
 set -e
 

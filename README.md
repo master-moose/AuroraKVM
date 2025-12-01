@@ -40,7 +40,23 @@ This will:
 
 ### Windows
 
+#### Native Build on Windows
+If you're on Windows, use the provided scripts:
+
+**Batch Script** (compatible with all Windows versions):
+```cmd
+build-windows.bat
+```
+
+**PowerShell** (recommended):
+```powershell
+.\build-windows.ps1
+```
+
+Binaries will be in `target\release\`
+
 #### Cross-Compile from Linux
+If you're on Linux and want to build for Windows:
 ```bash
 ./build-windows.sh
 ```
