@@ -9,9 +9,6 @@ struct Cli {
     /// Server host (auto-discovers if not specified)
     #[arg(short = 'H', long)]
     host: Option<String>,
-
-    #[arg(short, long)]
-    secret: Option<String>,
 }
 
 #[tokio::main]
@@ -63,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    client::run(host, cli.secret).await?;
+    client::run(host).await?;
 
     Ok(())
 }

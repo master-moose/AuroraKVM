@@ -3,16 +3,16 @@ use anyhow::Result;
 use rdev::{EventType, simulate};
 use tokio::net::TcpStream;
 
-pub async fn run(host: String, secret: Option<String>) -> Result<()> {
+pub async fn run(host: String) -> Result<()> {
     println!("Connecting to {}", host);
     let stream = TcpStream::connect(host).await?;
     let kvm_stream = KvmStream::new(stream);
     let (mut reader, mut writer) = kvm_stream.split();
 
-    // Send Handshake
+    // Send Handshake (no authentication)
     let handshake = Packet::Handshake {
         version: PROTOCOL_VERSION,
-        secret,
+        secret: None,
     };
     writer.send(&handshake).await?;
 

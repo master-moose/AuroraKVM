@@ -96,19 +96,12 @@ pub async fn run(port: u16) -> Result<()> {
 
             // Handshake
             match reader.receive().await {
-                Ok(Packet::Handshake { version, secret }) => {
+                Ok(Packet::Handshake { version, .. }) => {
                     if version != PROTOCOL_VERSION {
                         println!("Client {} version mismatch: {}", addr, version);
                         return;
                     }
-
-                    let expected_secret =
-                        topology_client.lock().unwrap().get_config().secret.clone();
-                    if expected_secret != secret {
-                        println!("Client {} authentication failed", addr);
-                        return;
-                    }
-                    println!("Client {} authenticated", addr);
+                    println!("Client {} connected", addr);
                 }
                 Ok(_) => {
                     println!("Client {} sent unexpected packet during handshake", addr);
