@@ -39,7 +39,7 @@ pub async fn run_with_state(
         Config::default()
     };
 
-    let topology = Arc::new(Mutex::new(Topology::new(config)));
+    let topology = Arc::new(Mutex::new(Topology::new(config, connected_clients.clone())));
 
     // Channel for broadcasting events to clients
     let (tx, _rx) = tokio::sync::broadcast::channel::<KvmEvent>(100);

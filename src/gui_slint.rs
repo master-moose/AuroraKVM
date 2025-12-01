@@ -231,6 +231,7 @@ pub fn run_gui_slint(
     let ui_weak_moved = ui.as_weak();
     let model_moved = model.clone();
     let client_positions_moved = client_positions.clone();
+    let connected_clients_moved = connected_clients.clone();
 
     ui.on_screen_moved(move |index, new_x, new_y| {
         if let Some(_ui) = ui_weak_moved.upgrade() {
@@ -240,11 +241,32 @@ pub fn run_gui_slint(
                 screen.y = new_y;
                 model_moved.set_row_data(index as usize, screen.clone());
 
-                // Update persistence map so timer doesn't reset position
                 let name = screen.name.to_string();
+
+                // Update persistence map so timer doesn't reset position
                 client_positions_moved
                     .borrow_mut()
-                    .insert(name, (new_x, new_y));
+                    .insert(name.clone(), (new_x, new_y));
+
+                // Update shared state for server routing
+                if let Some(connected) = &connected_clients_moved {
+                    if let Ok(mut clients) = connected.lock() {
+                        // The name in the model is "Name (Connected)", but in clients it's just "Name"
+                        // We need to match correctly.
+                        let clean_name = name.replace(" (Connected)", "");
+
+                        for (_, client) in clients.iter_mut() {
+                            if client.screen_info.name == clean_name {
+                                client.screen_info.x = new_x as i32;
+                                client.screen_info.y = new_y as i32;
+                                eprintln!(
+                                    "DEBUG: Updated server routing for '{}' to ({}, {})",
+                                    clean_name, new_x, new_y
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
     });

@@ -49,6 +49,8 @@ fn detect_screen_info() -> crate::net::ScreenInfo {
             crate::net::ScreenInfo {
                 width: display.width,
                 height: display.height,
+                x: 0,
+                y: 0,
                 name: hostname::get()
                     .ok()
                     .and_then(|h| h.into_string().ok())
@@ -60,6 +62,8 @@ fn detect_screen_info() -> crate::net::ScreenInfo {
             crate::net::ScreenInfo {
                 width: 1920,
                 height: 1080,
+                x: 0,
+                y: 0,
                 name: hostname::get()
                     .ok()
                     .and_then(|h| h.into_string().ok())

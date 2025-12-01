@@ -1,7 +1,9 @@
 use crate::config::Config;
+use crate::connected::ConnectedClients;
 
 pub struct Topology {
     config: Config,
+    connected_clients: ConnectedClients,
     current_focus: Focus,
     screen_width: f64,
     screen_height: f64,
@@ -14,7 +16,7 @@ pub enum Focus {
 }
 
 impl Topology {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, connected_clients: ConnectedClients) -> Self {
         // Calculate total bounding box of local screens for initial "screen size"
         // This is a simplification; we'll rely on the config for actual geometry.
         let mut max_x = 0.0;
@@ -32,6 +34,7 @@ impl Topology {
 
         Self {
             config,
+            connected_clients,
             current_focus: Focus::Local,
             screen_width: max_x,
             screen_height: max_y,
@@ -70,10 +73,7 @@ impl Topology {
     }
 
     fn find_client_at(&self, x: i32, y: i32) -> Option<Focus> {
-        // Simple bounding box check against all clients
-        // We treat the local screen as (0,0) to (width, height)
-        // Clients are positioned relative to this.
-
+        // Check configured clients (static)
         for client in &self.config.clients {
             let cx = client.x;
             let cy = client.y;
@@ -84,6 +84,22 @@ impl Topology {
                 return Some(Focus::Client(client.name.clone()));
             }
         }
+
+        // Check connected clients (dynamic)
+        if let Ok(clients) = self.connected_clients.lock() {
+            for (_, client) in clients.iter() {
+                let info = &client.screen_info;
+                // Check bounds using info.x, info.y, info.width, info.height
+                if x >= info.x
+                    && x < info.x + info.width as i32
+                    && y >= info.y
+                    && y < info.y + info.height as i32
+                {
+                    return Some(Focus::Client(info.name.clone()));
+                }
+            }
+        }
+
         None
     }
 

@@ -12,6 +12,8 @@ pub const PROTOCOL_VERSION: u32 = 1;
 pub struct ScreenInfo {
     pub width: u32,
     pub height: u32,
+    pub x: i32,
+    pub y: i32,
     pub name: String,
 }
 
