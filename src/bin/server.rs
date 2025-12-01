@@ -1,4 +1,4 @@
-use aurora_kvm::{gui, server};
+use aurora_kvm::{gui_slint, server};
 use clap::Parser;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
         });
 
         // Launch GUI (blocks until closed)
-        if let Err(e) = gui::run_gui(Some(connected_clients)) {
+        if let Err(e) = gui_slint::run_gui_slint(Some(connected_clients)) {
             eprintln!("GUI error: {}", e);
             std::process::exit(1);
         }
