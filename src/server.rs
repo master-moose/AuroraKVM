@@ -33,6 +33,7 @@ pub async fn run(port: u16) -> Result<()> {
     };
 
     let topology = Arc::new(Mutex::new(Topology::new(config)));
+    let connected_clients = crate::connected::create_connected_clients();
 
     // Channel for broadcasting events to clients
     let (tx, _rx) = tokio::sync::broadcast::channel::<KvmEvent>(100);
@@ -89,6 +90,7 @@ pub async fn run(port: u16) -> Result<()> {
         println!("Client connected: {}", addr);
         let mut rx = tx.subscribe();
         let _topology_client = topology.clone();
+        let connected_clients_clone = connected_clients.clone();
 
         tokio::spawn(async move {
             let kvm_stream = KvmStream::new(stream);
@@ -96,12 +98,32 @@ pub async fn run(port: u16) -> Result<()> {
 
             // Handshake
             match reader.receive().await {
-                Ok(Packet::Handshake { version, .. }) => {
+                Ok(Packet::Handshake {
+                    version,
+                    screen_info,
+                    ..
+                }) => {
                     if version != PROTOCOL_VERSION {
                         println!("Client {} version mismatch: {}", addr, version);
                         return;
                     }
-                    println!("Client {} connected", addr);
+
+                    // Register connected client
+                    if let Some(info) = screen_info {
+                        connected_clients_clone.lock().unwrap().insert(
+                            addr,
+                            crate::connected::ConnectedClient {
+                                addr,
+                                screen_info: info.clone(),
+                            },
+                        );
+                        println!(
+                            "Client {} connected: {} ({}x{})",
+                            addr, info.name, info.width, info.height
+                        );
+                    } else {
+                        println!("Client {} connected (no screen info)", addr);
+                    }
                 }
                 Ok(_) => {
                     println!("Client {} sent unexpected packet during handshake", addr);

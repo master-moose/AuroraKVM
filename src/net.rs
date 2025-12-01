@@ -8,11 +8,19 @@ use tokio::net::TcpStream;
 const MAX_FRAME_SIZE: u32 = 1024 * 1024; // 1MB
 pub const PROTOCOL_VERSION: u32 = 1;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ScreenInfo {
+    pub width: u32,
+    pub height: u32,
+    pub name: String,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Packet {
     Handshake {
         version: u32,
         secret: Option<String>,
+        screen_info: Option<ScreenInfo>,
     },
     Event(KvmEvent),
     Heartbeat,
