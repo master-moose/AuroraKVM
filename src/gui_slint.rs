@@ -1,5 +1,8 @@
 use crate::config::Config;
 use crate::connected::ConnectedClients;
+use slint::Model;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -32,6 +35,7 @@ impl From<ScreenData> for Screen {
 fn build_screen_model(
     config: &Config,
     connected_clients: &Option<ConnectedClients>,
+    client_positions: &Rc<RefCell<HashMap<String, (f32, f32)>>>,
 ) -> Vec<ScreenData> {
     let mut screens: Vec<ScreenData> = Vec::new();
 
@@ -63,20 +67,34 @@ fn build_screen_model(
     if let Some(connected) = connected_clients {
         if let Ok(clients) = connected.lock() {
             for (i, (_, client)) in clients.iter().enumerate() {
-                let offset_x = (i as f32) * 1100.0; // Offset each client horizontally
+                let name = format!("{} (Connected)", client.screen_info.name);
+
+                // Get position from persistence map or calculate default
+                let (x, y) = {
+                    let mut positions = client_positions.borrow_mut();
+                    if let Some(&pos) = positions.get(&name) {
+                        pos
+                    } else {
+                        let offset_x = (i as f32) * 1100.0;
+                        let default_x = 1000.0 + offset_x;
+                        let default_y = 750.0;
+                        positions.insert(name.clone(), (default_x, default_y));
+                        (default_x, default_y)
+                    }
+                };
+
                 screens.push(ScreenData {
-                    name: format!("{} (Connected)", client.screen_info.name),
-                    x: 1000.0 + offset_x, // Center of smaller viewport (2000x1500)
-                    y: 750.0,             // Center of smaller viewport
+                    name: name.clone(),
+                    x,
+                    y,
                     width: client.screen_info.width as f32,
                     height: client.screen_info.height as f32,
                     connected: true,
                 });
+
                 eprintln!(
                     "DEBUG: Added connected client '{}' at ({}, {})",
-                    client.screen_info.name,
-                    1000.0 + offset_x,
-                    750.0
+                    client.screen_info.name, x, y
                 );
             }
         }
@@ -131,8 +149,11 @@ pub fn run_gui_slint(
         );
     }
 
+    // State for persisting client positions during session
+    let client_positions = Rc::new(RefCell::new(HashMap::new()));
+
     // Build initial screen model
-    let screens = build_screen_model(&config, &connected_clients);
+    let screens = build_screen_model(&config, &connected_clients, &client_positions);
     let screen_model: Vec<Screen> = screens.into_iter().map(|s| s.into()).collect();
     let model = Rc::new(slint::VecModel::from(screen_model));
     ui.set_screens(model.clone().into());
@@ -142,6 +163,7 @@ pub fn run_gui_slint(
     let connected_clients_timer = connected_clients.clone();
     let config_timer = config.clone();
     let model_timer = model.clone();
+    let client_positions_timer = client_positions.clone();
 
     let timer = slint::Timer::default();
     timer.start(
@@ -150,7 +172,11 @@ pub fn run_gui_slint(
         move || {
             if let Some(ui) = ui_weak_timer.upgrade() {
                 // Rebuild screen model on each tick
-                let screens = build_screen_model(&config_timer, &connected_clients_timer);
+                let screens = build_screen_model(
+                    &config_timer,
+                    &connected_clients_timer,
+                    &client_positions_timer,
+                );
                 let screen_vec: Vec<Screen> = screens.into_iter().map(|s| s.into()).collect();
 
                 // Update the model
@@ -172,6 +198,28 @@ pub fn run_gui_slint(
     ui.on_add_client(move || {
         if let Some(ui) = ui_weak.upgrade() {
             ui.set_status_text("Add client dialog...".into());
+        }
+    });
+
+    // Handle screen move (drag) events
+    let ui_weak_moved = ui.as_weak();
+    let model_moved = model.clone();
+    let client_positions_moved = client_positions.clone();
+
+    ui.on_screen_moved(move |index, new_x, new_y| {
+        if let Some(_ui) = ui_weak_moved.upgrade() {
+            // Update model
+            if let Some(mut screen) = model_moved.row_data(index as usize) {
+                screen.x = new_x;
+                screen.y = new_y;
+                model_moved.set_row_data(index as usize, screen.clone());
+
+                // Update persistence map so timer doesn't reset position
+                let name = screen.name.to_string();
+                client_positions_moved
+                    .borrow_mut()
+                    .insert(name, (new_x, new_y));
+            }
         }
     });
 

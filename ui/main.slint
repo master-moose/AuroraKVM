@@ -4,17 +4,25 @@ import { Button, VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slin
 // Screen rectangle component
 component ScreenRect {
     in property <string> label: "Screen";
-    in property <length> rect-x: 0px;
-    in property <length> rect-y: 0px;
+    in-out property <length> rect-x: 0px;
+    in-out property <length> rect-y: 0px;
     in property <length> rect-width: 192px;
     in property <length> rect-height: 108px;
     in property <color> bg-color: #2c5632;
     in property <color> border-color: #4caf50;
     in property <bool> is-connected: false;
+    in property <bool> draggable: false;
+    
+    callback moved(length, length);
+    
+    // Drag state
+    property <length> drag-offset-x: 0px;
+    property <length> drag-offset-y: 0px;
+    property <bool> is-dragging: false;
 
     Rectangle {
-        x: rect-x;
-        y: rect-y;
+        x: rect-x + drag-offset-x;
+        y: rect-y + drag-offset-y;
         width: rect-width;
         height: rect-height;
         background: bg-color;
@@ -39,6 +47,30 @@ component ScreenRect {
             background: #76ff80;
             border-radius: 5px;
         }
+        
+        // Drag handler for connected clients
+        if draggable: TouchArea {
+            width: parent.width;
+            height: parent.height;
+            
+            moved => {
+                if self.pressed {
+                    root.drag-offset-x = self.mouse-x - self.pressed-x;
+                    root.drag-offset-y = self.mouse-y - self.pressed-y;
+                    root.is-dragging = true;
+                }
+            }
+            
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.up && root.is-dragging) {
+                    // Commit the drag
+                    root.moved(rect-x + drag-offset-x, rect-y + drag-offset-y);
+                    root.drag-offset-x = 0px;
+                    root.drag-offset-y = 0px;
+                    root.is-dragging = false;
+                }
+            }
+        }
     }
 }
 
@@ -61,6 +93,7 @@ export component MainWindow inherits Window {
     
     callback save-config();
     callback add-client();
+    callback screen-moved(int, float, float);
     
     VerticalBox {
         padding: 10px;
@@ -97,8 +130,7 @@ export component MainWindow inherits Window {
             border-color: #333;
             
             ScrollView {
-                viewport-width: 2000px;
-                viewport-height: 1500px;
+                // No fixed dimensions - adapts to available space
                 
                 Rectangle {
                     width: 2000px;
@@ -128,7 +160,10 @@ export component MainWindow inherits Window {
                         rect-height: screen.height * 0.1px;
                         bg-color: screen.connected ? #2d5c36 : #333333;
                         border-color: screen.connected ? #76ff80 : #555555;
-                        is-connected: screen.connected;
+                        draggable: screen.connected;
+                        moved(new-x, new-y) => {
+                            root.screen-moved(i, new-x / 0.1px, new-y / 0.1px);
+                        }
                     }
                 }
             }
