@@ -97,25 +97,25 @@ export component MainWindow inherits Window {
             border-color: #333;
             
             ScrollView {
-                viewport-width: 4000px;
-                viewport-height: 3000px;
+                viewport-width: 2000px;
+                viewport-height: 1500px;
                 
                 Rectangle {
-                    width: 4000px;
-                    height: 3000px;
+                    width: 2000px;
+                    height: 1500px;
                     
-                    // Grid background
+                    // Grid background (250px spacing)
                     for y in [0, 1, 2, 3, 4, 5, 6]: Rectangle {
-                        y: y * 500px;
-                        width: 4000px;
+                        y: y * 250px;
+                        width: 2000px;
                         height: 1px;
                         background: #2a2a2a;
                     }
                     
                     for x in [0, 1, 2, 3, 4, 5, 6, 7, 8]: Rectangle {
-                        x: x * 500px;
+                        x: x * 250px;
                         width: 1px;
-                        height: 3000px;
+                        height: 1500px;
                         background: #2a2a2a;
                     }
                     

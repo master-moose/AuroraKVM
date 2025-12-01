@@ -63,11 +63,11 @@ fn build_screen_model(
     if let Some(connected) = connected_clients {
         if let Ok(clients) = connected.lock() {
             for (i, (_, client)) in clients.iter().enumerate() {
-                let offset_x = (i as f32) * 2100.0; // Offset each client horizontally
+                let offset_x = (i as f32) * 1100.0; // Offset each client horizontally
                 screens.push(ScreenData {
                     name: format!("{} (Connected)", client.screen_info.name),
-                    x: 2000.0 + offset_x, // Center of viewport
-                    y: 1500.0,            // Center of viewport
+                    x: 1000.0 + offset_x, // Center of smaller viewport (2000x1500)
+                    y: 750.0,             // Center of smaller viewport
                     width: client.screen_info.width as f32,
                     height: client.screen_info.height as f32,
                     connected: true,
@@ -75,8 +75,8 @@ fn build_screen_model(
                 eprintln!(
                     "DEBUG: Added connected client '{}' at ({}, {})",
                     client.screen_info.name,
-                    2000.0 + offset_x,
-                    1500.0
+                    1000.0 + offset_x,
+                    750.0
                 );
             }
         }
