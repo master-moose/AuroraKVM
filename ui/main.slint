@@ -89,6 +89,7 @@ export component MainWindow inherits Window {
     preferred-height: 800px;
    
     in-out property <string> status-text: "Ready";
+    in-out property <bool> is-locked: false;
     in property <[Screen]> screens: [];
     
     callback save-config();
@@ -105,6 +106,11 @@ export component MainWindow inherits Window {
             Button {
                 text: "➕ Add Client";
                 clicked => { add-client(); }
+            }
+            
+            Button {
+                text: root.is-locked ? "🔒 Locked" : "🔓 Unlocked";
+                clicked => { root.is-locked = !root.is-locked; }
             }
             
             Button {
@@ -160,7 +166,7 @@ export component MainWindow inherits Window {
                         rect-height: screen.height * 0.1px;
                         bg-color: screen.connected ? #2d5c36 : #333333;
                         border-color: screen.connected ? #76ff80 : #555555;
-                        draggable: screen.connected;
+                        draggable: screen.connected && !root.is-locked;
                         moved(new-x, new-y) => {
                             root.screen-moved(i, new-x / 0.1px, new-y / 0.1px);
                         }

@@ -166,22 +166,48 @@ pub fn run_gui_slint(
     let client_positions_timer = client_positions.clone();
 
     let timer = slint::Timer::default();
+    let last_signature = Rc::new(RefCell::new(String::new()));
+
     timer.start(
         slint::TimerMode::Repeated,
         std::time::Duration::from_millis(500),
         move || {
             if let Some(ui) = ui_weak_timer.upgrade() {
-                // Rebuild screen model on each tick
-                let screens = build_screen_model(
-                    &config_timer,
-                    &connected_clients_timer,
-                    &client_positions_timer,
-                );
-                let screen_vec: Vec<Screen> = screens.into_iter().map(|s| s.into()).collect();
+                // Calculate current signature to check for changes
+                let current_signature = if let Some(connected) = &connected_clients_timer {
+                    if let Ok(clients) = connected.lock() {
+                        let mut sig = format!("Count:{}", clients.len());
+                        for (_, client) in clients.iter() {
+                            sig.push_str(&format!("|{}", client.screen_info.name));
+                        }
+                        sig
+                    } else {
+                        "Locked".to_string()
+                    }
+                } else {
+                    "None".to_string()
+                };
 
-                // Update the model
-                model_timer.set_vec(screen_vec);
-                ui.set_screens(model_timer.clone().into());
+                // Only rebuild if signature changed
+                if *last_signature.borrow() != current_signature {
+                    eprintln!(
+                        "DEBUG: Clients changed, updating model. Sig: {}",
+                        current_signature
+                    );
+                    *last_signature.borrow_mut() = current_signature;
+
+                    // Rebuild screen model
+                    let screens = build_screen_model(
+                        &config_timer,
+                        &connected_clients_timer,
+                        &client_positions_timer,
+                    );
+                    let screen_vec: Vec<Screen> = screens.into_iter().map(|s| s.into()).collect();
+
+                    // Update the model
+                    model_timer.set_vec(screen_vec);
+                    ui.set_screens(model_timer.clone().into());
+                }
             }
         },
     );
