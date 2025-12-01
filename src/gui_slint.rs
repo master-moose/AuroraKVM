@@ -62,18 +62,27 @@ fn build_screen_model(
     // Add live connected clients (green)
     if let Some(connected) = connected_clients {
         if let Ok(clients) = connected.lock() {
-            for (_, client) in clients.iter() {
+            for (i, (_, client)) in clients.iter().enumerate() {
+                let offset_x = (i as f32) * 2100.0; // Offset each client horizontally
                 screens.push(ScreenData {
                     name: format!("{} (Connected)", client.screen_info.name),
-                    x: 0.0,
-                    y: 0.0,
+                    x: 2000.0 + offset_x, // Center of viewport
+                    y: 1500.0,            // Center of viewport
                     width: client.screen_info.width as f32,
                     height: client.screen_info.height as f32,
                     connected: true,
                 });
+                eprintln!(
+                    "DEBUG: Added connected client '{}' at ({}, {})",
+                    client.screen_info.name,
+                    2000.0 + offset_x,
+                    1500.0
+                );
             }
         }
     }
+
+    eprintln!("DEBUG: Total screens in model: {}", screens.len());
 
     screens
 }
@@ -101,6 +110,25 @@ pub fn run_gui_slint(
     // Auto-detect monitors if config has no local screens
     if config.local_screens.is_empty() {
         config.local_screens = crate::monitor::detect_monitors();
+        eprintln!(
+            "DEBUG: Auto-detected {} local screens",
+            config.local_screens.len()
+        );
+        for (i, screen) in config.local_screens.iter().enumerate() {
+            eprintln!(
+                "DEBUG:   Local Screen {}: {}x{} at ({}, {})",
+                i + 1,
+                screen.width,
+                screen.height,
+                screen.x,
+                screen.y
+            );
+        }
+    } else {
+        eprintln!(
+            "DEBUG: Using {} local screens from config",
+            config.local_screens.len()
+        );
     }
 
     // Build initial screen model
