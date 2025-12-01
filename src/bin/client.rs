@@ -8,6 +8,9 @@ use tracing_subscriber::FmtSubscriber;
 struct Cli {
     #[arg(short, long)]
     host: String,
+
+    #[arg(short, long)]
+    secret: Option<String>,
 }
 
 #[tokio::main]
@@ -20,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    client::run(cli.host).await?;
+    client::run(cli.host, cli.secret).await?;
 
     Ok(())
 }

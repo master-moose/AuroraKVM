@@ -1,8 +1,22 @@
 use crate::event::KvmEvent;
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bincode;
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+
+const MAX_FRAME_SIZE: u32 = 1024 * 1024; // 1MB
+pub const PROTOCOL_VERSION: u32 = 1;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Packet {
+    Handshake {
+        version: u32,
+        secret: Option<String>,
+    },
+    Event(KvmEvent),
+    Heartbeat,
+}
 
 pub struct KvmStream {
     stream: TcpStream,
@@ -24,12 +38,15 @@ pub struct KvmReader {
 }
 
 impl KvmReader {
-    pub async fn receive(&mut self) -> Result<KvmEvent> {
+    pub async fn receive(&mut self) -> Result<Packet> {
         let len = self.stream.read_u32().await?;
+        if len > MAX_FRAME_SIZE {
+            return Err(anyhow!("Frame size too large: {}", len));
+        }
         let mut buf = vec![0u8; len as usize];
         self.stream.read_exact(&mut buf).await?;
-        let event = bincode::deserialize(&buf)?;
-        Ok(event)
+        let packet = bincode::deserialize(&buf)?;
+        Ok(packet)
     }
 }
 
@@ -38,8 +55,8 @@ pub struct KvmWriter {
 }
 
 impl KvmWriter {
-    pub async fn send(&mut self, event: &KvmEvent) -> Result<()> {
-        let data = bincode::serialize(event)?;
+    pub async fn send(&mut self, packet: &Packet) -> Result<()> {
+        let data = bincode::serialize(packet)?;
         let len = data.len() as u32;
         self.stream.write_u32(len).await?;
         self.stream.write_all(&data).await?;
