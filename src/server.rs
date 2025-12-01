@@ -88,7 +88,7 @@ pub async fn run(port: u16) -> Result<()> {
         let (stream, addr) = listener.accept().await?;
         println!("Client connected: {}", addr);
         let mut rx = tx.subscribe();
-        let topology_client = topology.clone();
+        let _topology_client = topology.clone();
 
         tokio::spawn(async move {
             let kvm_stream = KvmStream::new(stream);
