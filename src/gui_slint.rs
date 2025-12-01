@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::connected::ConnectedClients;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 slint::include_modules!();
 
@@ -27,27 +28,11 @@ impl From<ScreenData> for Screen {
     }
 }
 
-pub fn run_gui_slint(
-    connected_clients: Option<ConnectedClients>,
-) -> Result<(), slint::PlatformError> {
-    let ui = MainWindow::new()?;
-
-    // Load config
-    let config_path = dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("aurora_kvm")
-        .join("config.json");
-
-    let config: Config = if config_path.exists() {
-        std::fs::read_to_string(&config_path)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
-    } else {
-        Config::default()
-    };
-
-    // Populate screens from config
+/// Build the screen model from config and connected clients
+fn build_screen_model(
+    config: &Config,
+    connected_clients: &Option<ConnectedClients>,
+) -> Vec<ScreenData> {
     let mut screens: Vec<ScreenData> = Vec::new();
 
     // Add local screens (from config)
@@ -75,7 +60,7 @@ pub fn run_gui_slint(
     }
 
     // Add live connected clients (green)
-    if let Some(ref connected) = connected_clients {
+    if let Some(connected) = connected_clients {
         if let Ok(clients) = connected.lock() {
             for (_, client) in clients.iter() {
                 screens.push(ScreenData {
@@ -90,10 +75,62 @@ pub fn run_gui_slint(
         }
     }
 
-    // Convert to Slint model
+    screens
+}
+
+pub fn run_gui_slint(
+    connected_clients: Option<ConnectedClients>,
+) -> Result<(), slint::PlatformError> {
+    let ui = MainWindow::new()?;
+
+    // Load config
+    let config_path = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("aurora_kvm")
+        .join("config.json");
+
+    let mut config: Config = if config_path.exists() {
+        std::fs::read_to_string(&config_path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+    } else {
+        Config::default()
+    };
+
+    // Auto-detect monitors if config has no local screens
+    if config.local_screens.is_empty() {
+        config.local_screens = crate::monitor::detect_monitors();
+    }
+
+    // Build initial screen model
+    let screens = build_screen_model(&config, &connected_clients);
     let screen_model: Vec<Screen> = screens.into_iter().map(|s| s.into()).collect();
-    let model = std::rc::Rc::new(slint::VecModel::from(screen_model));
-    ui.set_screens(model.into());
+    let model = Rc::new(slint::VecModel::from(screen_model));
+    ui.set_screens(model.clone().into());
+
+    // Setup live update timer (500ms interval)
+    let ui_weak_timer = ui.as_weak();
+    let connected_clients_timer = connected_clients.clone();
+    let config_timer = config.clone();
+    let model_timer = model.clone();
+
+    let timer = slint::Timer::default();
+    timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(500),
+        move || {
+            if let Some(ui) = ui_weak_timer.upgrade() {
+                // Rebuild screen model on each tick
+                let screens = build_screen_model(&config_timer, &connected_clients_timer);
+                let screen_vec: Vec<Screen> = screens.into_iter().map(|s| s.into()).collect();
+
+                // Update the model
+                model_timer.set_vec(screen_vec);
+                ui.set_screens(model_timer.clone().into());
+            }
+        },
+    );
 
     // Setup callbacks
     let ui_weak = ui.as_weak();
@@ -109,6 +146,10 @@ pub fn run_gui_slint(
             ui.set_status_text("Add client dialog...".into());
         }
     });
+
+    // Keep timer alive by moving it into a Box and leaking it
+    // This ensures it lives for the duration of the UI
+    Box::leak(Box::new(timer));
 
     ui.run()
 }

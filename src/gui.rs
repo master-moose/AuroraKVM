@@ -51,7 +51,7 @@ impl Default for ConfigApp {
 
         // Auto-detect monitors if config has no local screens
         if config.local_screens.is_empty() {
-            config.local_screens = detect_monitors();
+            config.local_screens = crate::monitor::detect_monitors();
         }
 
         Self {
@@ -62,44 +62,6 @@ impl Default for ConfigApp {
             show_add_dialog: false,
             scale_factor: 0.1, // 10% scale for visualization
             connected_clients: None,
-        }
-    }
-}
-
-fn detect_monitors() -> Vec<crate::config::LocalScreen> {
-    use display_info::DisplayInfo;
-
-    match DisplayInfo::all() {
-        Ok(displays) => {
-            if displays.is_empty() {
-                // Fallback to default
-                return vec![crate::config::LocalScreen {
-                    x: 0,
-                    y: 0,
-                    width: 1920,
-                    height: 1080,
-                }];
-            }
-
-            displays
-                .iter()
-                .enumerate()
-                .map(|(_i, display)| crate::config::LocalScreen {
-                    x: display.x,
-                    y: display.y,
-                    width: display.width,
-                    height: display.height,
-                })
-                .collect()
-        }
-        Err(e) => {
-            eprintln!("Failed to detect monitors: {}, using default", e);
-            vec![crate::config::LocalScreen {
-                x: 0,
-                y: 0,
-                width: 1920,
-                height: 1080,
-            }]
         }
     }
 }
