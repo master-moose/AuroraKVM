@@ -33,7 +33,7 @@ impl Default for ConfigApp {
             .join("aurora_kvm")
             .join("config.json");
 
-        let config = if config_path.exists() {
+        let mut config = if config_path.exists() {
             std::fs::read_to_string(&config_path)
                 .ok()
                 .and_then(|s| serde_json::from_str(&s).ok())
@@ -42,6 +42,11 @@ impl Default for ConfigApp {
             Config::default()
         };
 
+        // Auto-detect monitors if config has no local screens
+        if config.local_screens.is_empty() {
+            config.local_screens = detect_monitors();
+        }
+
         Self {
             config,
             config_path,
@@ -49,6 +54,44 @@ impl Default for ConfigApp {
             new_client_ip: String::new(),
             show_add_dialog: false,
             scale_factor: 0.1, // 10% scale for visualization
+        }
+    }
+}
+
+fn detect_monitors() -> Vec<crate::config::LocalScreen> {
+    use display_info::DisplayInfo;
+
+    match DisplayInfo::all() {
+        Ok(displays) => {
+            if displays.is_empty() {
+                // Fallback to default
+                return vec![crate::config::LocalScreen {
+                    x: 0,
+                    y: 0,
+                    width: 1920,
+                    height: 1080,
+                }];
+            }
+
+            displays
+                .iter()
+                .enumerate()
+                .map(|(_i, display)| crate::config::LocalScreen {
+                    x: display.x,
+                    y: display.y,
+                    width: display.width,
+                    height: display.height,
+                })
+                .collect()
+        }
+        Err(e) => {
+            eprintln!("Failed to detect monitors: {}, using default", e);
+            vec![crate::config::LocalScreen {
+                x: 0,
+                y: 0,
+                width: 1920,
+                height: 1080,
+            }]
         }
     }
 }

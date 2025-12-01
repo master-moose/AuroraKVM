@@ -9,9 +9,9 @@ struct Cli {
     #[arg(short, long, default_value_t = 8080)]
     port: u16,
 
-    /// Launch configuration GUI
+    /// Run in headless mode (no GUI, server only)
     #[arg(long)]
-    configure: bool,
+    headless: bool,
 }
 
 #[tokio::main]
@@ -24,13 +24,15 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    if cli.configure {
+    if cli.headless {
+        // Run server only
+        server::run(cli.port).await?;
+    } else {
+        // Default: Launch GUI
         if let Err(e) = gui::run_gui() {
             eprintln!("GUI error: {}", e);
             std::process::exit(1);
         }
-    } else {
-        server::run(cli.port).await?;
     }
 
     Ok(())
