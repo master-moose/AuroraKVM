@@ -28,7 +28,17 @@ async fn main() -> anyhow::Result<()> {
         // Run server only
         server::run(cli.port).await?;
     } else {
-        // Default: Launch GUI
+        // Default: Launch GUI with server running in background
+        let port = cli.port;
+
+        // Spawn server in background
+        tokio::spawn(async move {
+            if let Err(e) = server::run(port).await {
+                eprintln!("Server error: {}", e);
+            }
+        });
+
+        // Launch GUI (blocks until closed)
         if let Err(e) = gui::run_gui() {
             eprintln!("GUI error: {}", e);
             std::process::exit(1);
