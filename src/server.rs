@@ -70,6 +70,20 @@ pub async fn run(port: u16) -> Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
     println!("Server listening on port {}", port);
 
+    // Start service discovery broadcast
+    let discovery_port = port;
+    tokio::spawn(async move {
+        if let Err(e) = crate::discovery::broadcast_server(
+            discovery_port,
+            "AuroraKVM Server".to_string(),
+            crate::net::PROTOCOL_VERSION,
+        )
+        .await
+        {
+            eprintln!("Discovery broadcast error: {}", e);
+        }
+    });
+
     loop {
         let (stream, addr) = listener.accept().await?;
         println!("Client connected: {}", addr);

@@ -6,8 +6,9 @@ use tracing_subscriber::FmtSubscriber;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(short, long)]
-    host: String,
+    /// Server host (auto-discovers if not specified)
+    #[arg(short = 'H', long)]
+    host: Option<String>,
 
     #[arg(short, long)]
     secret: Option<String>,
@@ -23,7 +24,46 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    client::run(cli.host, cli.secret).await?;
+    let host = if let Some(h) = cli.host {
+        h
+    } else {
+        // Auto-discover servers
+        println!("Discovering servers on network...");
+        match aurora_kvm::discovery::discover_servers(5).await {
+            Ok(servers) if !servers.is_empty() => {
+                if servers.len() == 1 {
+                    let (announcement, ip) = &servers[0];
+                    let discovered = format!("{}:{}", ip, announcement.port);
+                    println!("Found server: {} at {}", announcement.name, discovered);
+                    discovered
+                } else {
+                    println!("\nFound {} servers:", servers.len());
+                    for (i, (announcement, ip)) in servers.iter().enumerate() {
+                        println!(
+                            "  {}. {} at {}:{}",
+                            i + 1,
+                            announcement.name,
+                            ip,
+                            announcement.port
+                        );
+                    }
+                    println!("\nUsing first server");
+                    let (announcement, ip) = &servers[0];
+                    format!("{}:{}", ip, announcement.port)
+                }
+            }
+            Ok(_) => {
+                eprintln!("No servers found. Please specify --host manually.");
+                std::process::exit(1);
+            }
+            Err(e) => {
+                eprintln!("Discovery error: {}. Please specify --host manually.", e);
+                std::process::exit(1);
+            }
+        }
+    };
+
+    client::run(host, cli.secret).await?;
 
     Ok(())
 }
