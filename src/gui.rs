@@ -2,18 +2,24 @@ use crate::config::{ClientConfig, Config};
 use eframe::egui;
 use std::path::PathBuf;
 
-pub fn run_gui() -> Result<(), eframe::Error> {
+pub fn run_gui(
+    connected_clients: Option<crate::connected::ConnectedClients>,
+) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1024.0, 768.0])
+            .with_inner_size([1200.0, 800.0])
             .with_title("AuroraKVM Configuration"),
         ..Default::default()
     };
 
     eframe::run_native(
-        "AuroraKVM",
+        "AuroraKVM Configuration",
         options,
-        Box::new(|_cc| Ok(Box::new(ConfigApp::default()))),
+        Box::new(|_cc| {
+            let mut app = ConfigApp::default();
+            app.connected_clients = connected_clients;
+            Ok(Box::new(app))
+        }),
     )
 }
 
@@ -24,6 +30,7 @@ struct ConfigApp {
     new_client_ip: String,
     show_add_dialog: bool,
     scale_factor: f32,
+    connected_clients: Option<crate::connected::ConnectedClients>,
 }
 
 impl Default for ConfigApp {
@@ -54,6 +61,7 @@ impl Default for ConfigApp {
             new_client_ip: String::new(),
             show_add_dialog: false,
             scale_factor: 0.1, // 10% scale for visualization
+            connected_clients: None,
         }
     }
 }
@@ -210,6 +218,47 @@ impl eframe::App for ConfigApp {
 
             if let Some(idx) = remove_idx {
                 self.config.clients.remove(idx);
+            }
+
+            // Draw Live Connected Clients (green)
+            if let Some(ref connected) = self.connected_clients {
+                if let Ok(clients) = connected.lock() {
+                    for (_addr, client) in clients.iter() {
+                        let client_rect = egui::Rect::from_min_size(
+                            egui::pos2(0.0, 0.0), // Default position until configured
+                            egui::vec2(
+                                client.screen_info.width as f32,
+                                client.screen_info.height as f32,
+                            ),
+                        );
+                        let screen_rect =
+                            Self::to_screen_rect(client_rect, center_offset, self.scale_factor);
+
+                        // Green for connected
+                        painter.rect_filled(screen_rect, 5.0, egui::Color32::from_rgb(30, 80, 30));
+                        painter.rect_stroke(
+                            screen_rect,
+                            5.0,
+                            egui::Stroke::new(2.0, egui::Color32::from_rgb(76, 255, 80)),
+                            egui::StrokeKind::Inside,
+                        );
+
+                        // Text
+                        let label = format!(
+                            "{}\n{}x{}\n(Connected)",
+                            client.screen_info.name,
+                            client.screen_info.width,
+                            client.screen_info.height
+                        );
+                        painter.text(
+                            screen_rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            label,
+                            egui::FontId::proportional(12.0),
+                            egui::Color32::WHITE,
+                        );
+                    }
+                }
             }
 
             // Add Client Dialog

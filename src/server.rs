@@ -10,6 +10,13 @@ use std::sync::{Arc, Mutex};
 use tokio::net::TcpListener;
 
 pub async fn run(port: u16) -> Result<()> {
+    run_with_state(port, crate::connected::create_connected_clients()).await
+}
+
+pub async fn run_with_state(
+    port: u16,
+    connected_clients: crate::connected::ConnectedClients,
+) -> Result<()> {
     // Load config from file
     let config_path = dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
@@ -33,7 +40,6 @@ pub async fn run(port: u16) -> Result<()> {
     };
 
     let topology = Arc::new(Mutex::new(Topology::new(config)));
-    let connected_clients = crate::connected::create_connected_clients();
 
     // Channel for broadcasting events to clients
     let (tx, _rx) = tokio::sync::broadcast::channel::<KvmEvent>(100);

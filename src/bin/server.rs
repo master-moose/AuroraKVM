@@ -31,15 +31,19 @@ async fn main() -> anyhow::Result<()> {
         // Default: Launch GUI with server running in background
         let port = cli.port;
 
+        // Create connected clients state
+        let connected_clients = aurora_kvm::connected::create_connected_clients();
+        let connected_for_server = connected_clients.clone();
+
         // Spawn server in background
         tokio::spawn(async move {
-            if let Err(e) = server::run(port).await {
+            if let Err(e) = server::run_with_state(port, connected_for_server).await {
                 eprintln!("Server error: {}", e);
             }
         });
 
         // Launch GUI (blocks until closed)
-        if let Err(e) = gui::run_gui() {
+        if let Err(e) = gui::run_gui(Some(connected_clients)) {
             eprintln!("GUI error: {}", e);
             std::process::exit(1);
         }
